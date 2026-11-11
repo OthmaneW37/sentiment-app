@@ -1,86 +1,79 @@
-# sentiment-app : TP1 à TP5
+# sentiment-app
 
-Application du module *Développement et déploiement d'applications intelligentes*, mise à jour selon le guide de rattrapage d'octobre 2026. Le modèle TF-IDF et régression logistique classe les avis clients ; sous le seuil de confiance de 0,60, l'API répond `INDETERMINE` et demande une vérification humaine.
+Classifieur de sentiment d'avis clients en français (`positive` ou `negative`, avec une confiance), construit du
+cadrage au paquet installable : modèle TF-IDF et régression logistique, API FastAPI `/v1` protégée par clé,
+interface Streamlit, client web, service Java de démonstration, et un paquet Python publié en release.
 
-| TP | Réalisation | Compte rendu |
-| --- | --- | --- |
-| TP1 | Environnement Python 3.11, Git et trois fiches de cadrage | [Fiches](docs/cadrage/) |
-| TP2 | Entraînement, évaluation et prédiction reproductibles | [Semaine 2](docs/semaine2.md) |
-| TP3 | API FastAPI : `/health`, `/predict`, `/docs` | [Semaine 3](docs/semaine3.md) |
-| TP4 | Contrat, abstention, jeu d'or, intégration et qualité | [Semaine 4](docs/semaine4.md) |
-| TP5 | Interface Streamlit cliente de l'API, avis seul et CSV | [Semaine 5](docs/semaine5.md) |
+Projet du module *Développement et déploiement d'applications intelligentes*, réalisé en solo par
+Othmane Moussawi ([@OthmaneW37](https://github.com/OthmaneW37)).
 
-Le [journal TP1 à TP6](docs/journal-tp1-tp6.md) consigne, contrôle par contrôle, ce qui a été mesuré, ce qui ne l’a pas été et les écarts assumés. Les documents de l'ancienne version où le TP3 était une interface directe restent dans [les archives](docs/archives/) et [les anciens comptes rendus](docs/comptes-rendus/).
-
-## Installation sous PowerShell
+## Installer le paquet (sans cloner le dépôt)
 
 ```powershell
-py -3.11 -m venv .venv
+pip install https://github.com/OthmaneW37/sentiment-app/releases/download/v1.0.0/sentiment_app-1.0.0-py3-none-any.whl
+sentiment "Livraison rapide, très satisfait"
+```
+
+Le modèle est embarqué dans la roue. Détails et limites : [README-PAQUET.md](README-PAQUET.md) ;
+versions : [CHANGELOG.md](CHANGELOG.md).
+
+## Travailler sur le dépôt
+
+```powershell
+py -3.11 -m venv .venv                      # Python 3.12 accepté avec un avertissement
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt -r requirements-dev.txt
-python scripts/check_setup.py
-python src/make_demo.py
-python src/train.py
-python src/evaluate.py
-pre-commit install
+python src/make_demo.py                     # data/demo_reviews.csv : 290 avis de démonstration
+python src/train.py                         # models/sentiment.joblib et models/metrics.json
+Copy-Item .env.example .env                 # puis remplacer les deux clés (16 caractères minimum)
 ```
 
-`requirements.txt` contient les dépendances de tout le semestre. Le verrou `requirements.lock` enregistre les versions installées sur le poste Windows. La contrainte directe `pyarrow==21.0.*` a été retirée conformément au guide pour laisser MLflow et Streamlit sélectionner une version compatible.
+Générer une clé : `python -c "import secrets; print(secrets.token_urlsafe(24))"`. Dans `.env`,
+`API_KEYS=<clé 1>:client,<clé 2>:admin` et `API_KEY=<clé 1>`. Le fichier `.env` est ignoré par Git.
+Le modèle (`models/sentiment.joblib`) est reconstructible et n'est jamais commité ; seule sa mesure
+(`models/metrics.json`) est versionnée.
 
-L'entraînement par défaut utilise les 290 avis de démonstration, comme la CI et les tests des TP3 à TP5. L'option `python src/train.py --allocine` permet l'expérience du TP2 sur les 20 000 avis Allociné ; relancer ensuite `python src/train.py` avant les vérifications de l'API et du jeu d'or.
-
-`models/sentiment.joblib`, les données générées, `.venv/` et `.env` sont ignorés par Git. Seules les métriques et les petits jeux d'évaluation sont versionnés.
-
-## Démarrer les deux applications
-
-Dans deux terminaux, depuis la racine du dépôt, avec `.venv` activé :
+### Lancer les applications (deux terminaux, `.venv` activé)
 
 ```powershell
-# Terminal 1 : API et documentation interactive
-uvicorn api.main:app --reload
-# http://127.0.0.1:8000/docs
+uvicorn api.main:app --reload               # API : http://127.0.0.1:8000/docs (bouton Authorize)
+streamlit run ui/app.py                     # interface : http://localhost:8501
+python -m http.server 5500 --directory web  # client web : http://localhost:5500
 ```
 
-```powershell
-# Terminal 2 : interface
-streamlit run ui/app.py --server.headless true
-# http://localhost:8501
-```
-
-L'interface envoie des requêtes HTTP ; elle ne charge jamais le modèle. `API_URL` permet de choisir l'adresse du service. L'onglet CSV attend une colonne `text` ; [data/avis_exemple.csv](data/avis_exemple.csv) contient six exemples.
-
-## Vérifier et afficher l'avancement
-
-Le [pas-à-pas pour la présentation au professeur](docs/presenter-au-prof.md)
-donne chaque commande, les résultats attendus et les essais dans le navigateur.
-
-Dernière vérification locale : **102 tests réussis, 4 erreurs connues attendues**,
-aucun échec ni test ignoré ; couverture de l'API **97,70 %**.
-La CI sur clone neuf a également réussi. Le journal conserve les mesures et les
-points nécessitant encore la validation du binôme.
+### Vérifier
 
 ```powershell
-git log --oneline -10
-git status
-python -m pytest -q
-python -m pytest tests/ -v
-python -m pytest tests/test_api.py -q
-python -m pytest tests/test_limites.py -q
-python -m pytest tests/test_jeu_or.py -q
-python -m pytest tests/test_client.py -q
+python -m pytest -q --cov=api --cov-report=term-missing --cov-fail-under=95
 ruff check .
 mypy api
-python -m pytest -q --cov=api --cov-report=term-missing --cov-fail-under=95
-python src/courbe_seuil.py
-python src/bilan_jeu_or.py
+node --test web/client.test.mjs             # 12 tests du client web
 ```
 
-La CI entraîne le modèle de démonstration avant les tests, puis exécute ruff, mypy et pytest avec au moins 95 % de couverture de l'API. Les erreurs connues du jeu d'or restent documentées et sont attendues avec `xfail(strict=True)`.
+Dernier résultat : **130 passed, 1 skipped, 4 xfailed**, couverture de `api/` à 100 %. Le test ignoré
+(`tests/test_paquet.py`) vise le paquet installé ; il est exécuté et réussit dans le vérificateur du livrable.
+Les 4 « xfail » sont des erreurs connues du jeu d'or, documentées et attendues (`xfail(strict=True)`).
 
-## Auteur
+## Construire et vérifier le livrable
 
-| Rôle | Nom | GitHub |
-| --- | --- | --- |
-| Auteur | Othmane Moussawi | @OthmaneW37 |
+```powershell
+python -m build                             # dist/ : la roue et la distribution source
+python scripts/verifier_livrable.py         # contrôle dans un environnement neuf : Bilan : CONFORME
+gh release create v1.0.0 dist/* docs/livrable-tp4.txt --notes-file CHANGELOG.md
+```
 
-Projet réalisé en solo : les essais sont refaits sur mon poste.
+## Organisation
+
+| Dossier | Contenu |
+| --- | --- |
+| `src/sentiment_app/` | le paquet publié : `predict`, commande `sentiment`, modèle embarqué (non versionné) |
+| `src/` | scripts du modèle : `make_demo.py`, `train.py`, `evaluate.py`, `courbe_seuil.py`, `bilan_jeu_or.py` |
+| `api/` | API FastAPI : routes `/v1`, clés et rôles, format d'erreur unique |
+| `ui/` | interface Streamlit, cliente de l'API (`client.py`) |
+| `web/`, `java/` | client web et service Spring Boot qui appellent l'API |
+| `tests/` | tests : contrat, limites, jeu d'or, intégration, client, interface, paquet |
+| `scripts/` | diagnostic de l'environnement, vérificateur du livrable |
+| `docs/` | fiches de cadrage, analyses par semaine, journal, comptes rendus |
+
+L'historique suit les étapes : cadrage, modèle, API, tests et qualité, interface, puis les trois derniers
+commits « TP 2 » (API `/v1` protégée), « TP 3 » (interface sur `/v1`, graphiques) et « TP 4 » (paquet 1.0.0).
