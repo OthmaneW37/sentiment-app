@@ -22,7 +22,7 @@ def session():
 
 def test_sante_api_prete(session):
     etat = client.sante(session)
-    assert etat.ok and "TP2" in etat.message
+    assert etat.ok and "tfidf-logreg" in etat.message
 
 
 def test_avis_positif(session):

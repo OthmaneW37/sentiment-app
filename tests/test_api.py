@@ -1,4 +1,4 @@
-"""Tests de l'API du TP3 (6 tests), via TestClient : aucun serveur à lancer.
+"""Tests de l'API du TP 1 (6 tests), via TestClient : aucun serveur à lancer.
 
 Ignorés tant que models/sentiment.joblib n'existe pas sur le poste (la CI
 l'entraîne avant pytest : voir .github/workflows/ci.yml).
@@ -31,7 +31,7 @@ def test_health(client):
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "OK"
-    assert "TP2" in body["model"]
+    assert "sentiment.joblib" in body["model"]
 
 
 def test_predict_positif(client):

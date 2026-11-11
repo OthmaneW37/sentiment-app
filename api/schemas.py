@@ -1,15 +1,10 @@
 """Contrats d'entrée et de sortie de l'API (Pydantic v2)."""
-from typing import Literal, TypedDict
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-ApiLabel = Literal["POSITIVE", "NEGATIVE", "INDETERMINE"]
-
-
-class ApiPrediction(TypedDict):
-    label: ApiLabel
-    score: float
-    text: str
+# Les trois seules valeurs que l'API peut renvoyer : le contrat, écrit dans un type
+Label = Literal["POSITIVE", "NEGATIVE", "INDETERMINE"]
 
 
 class PredictRequest(BaseModel):
@@ -19,15 +14,16 @@ class PredictRequest(BaseModel):
 
     @field_validator("text")
     @classmethod
-    def refuser_texte_blanc(cls, texte: str) -> str:
-        if not texte.strip():
-            raise ValueError("texte vide")
-        return texte
+    def refuser_texte_blanc(cls, valeur: str) -> str:
+        """Même règle que predict() de src/predict.py : un texte vide une fois ses blancs retirés est refusé."""
+        if not valeur.strip():
+            raise ValueError("texte vide une fois les blancs retirés")
+        return valeur
 
 
 class PredictResponse(BaseModel):
     """Réponse de prédiction."""
-    label: ApiLabel = Field(..., description="POSITIVE, NEGATIVE ou INDETERMINE sous le seuil d'abstention")
+    label: Label = Field(..., description="POSITIVE, NEGATIVE, ou INDETERMINE sous le seuil d'abstention")
     score: float = Field(..., ge=0, le=1, description="Confiance de la classe prédite")
     text: str = Field(..., description="Aperçu du texte analysé (100 caractères)")
 
@@ -39,5 +35,28 @@ class HealthResponse(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """Format standard des erreurs FastAPI."""
+    """Format standard des erreurs FastAPI (routes sans version)."""
     detail: str
+
+
+class ChampInvalide(BaseModel):
+    champ: str = Field(..., description="Chemin du champ refusé, par exemple body.text")
+    message: str
+
+
+class DetailErreur(BaseModel):
+    code: str = Field(..., description="Code stable, à tester côté client : ENTREE_INVALIDE, NON_AUTHENTIFIE...")
+    message: str = Field(..., description="Message lisible, susceptible de changer")
+    champs: list[ChampInvalide] = Field(default_factory=list)
+
+
+class ErreurV1(BaseModel):
+    """Format unique de toutes les erreurs de /v1."""
+    erreur: DetailErreur
+
+
+class ModeleResponse(BaseModel):
+    """Réponse de GET /v1/modele (rôle admin)."""
+    model: str
+    seuil_abstention: float
+    metriques: dict = Field(default_factory=dict, description="Contenu de models/metrics.json")

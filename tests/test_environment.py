@@ -1,4 +1,4 @@
-"""Tests d'environnement du TP1 : Python, paquets, structure, .gitignore."""
+"""Tests d'environnement de l'atelier 0 : Python, paquets, structure, .gitignore."""
 import importlib
 import sys
 from pathlib import Path
