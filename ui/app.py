@@ -1,4 +1,4 @@
-"""Interface Streamlit (TP5) : elle appelle l'API, jamais le modèle.
+"""Interface Streamlit (TP 3) : elle appelle l'API /v1, jamais le modèle.
 
 Lancer, API déjà démarrée dans un autre terminal : streamlit run ui/app.py
 """
@@ -49,5 +49,12 @@ with onglet_lot:
             avis["confiance"] = [r.score for r in reponses]
             st.dataframe(avis, use_container_width=True)
             st.write(client.resumer(reponses))
+            st.subheader("Répartition des verdicts")
+            st.bar_chart(avis["verdict"].value_counts())
+            st.subheader("Distribution de la confiance")
+            tranches = pd.cut(avis["confiance"], bins=[0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+                              labels=["0,5 à 0,6", "0,6 à 0,7", "0,7 à 0,8", "0,8 à 0,9", "0,9 à 1"])
+            st.bar_chart(tranches.value_counts().sort_index())
+            st.caption("Sous 0,6 : avis renvoyés à un humain.")
             st.download_button("Télécharger les résultats", avis.to_csv(index=False),
                                file_name="resultats.csv", mime="text/csv")

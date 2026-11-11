@@ -1,4 +1,5 @@
-"""Tests de la page Streamlit (TP5), avec l'outil de test de Streamlit (AppTest)."""
+"""Tests de la page Streamlit (TP 3), avec l'outil de test de Streamlit (AppTest)."""
+import os
 from pathlib import Path
 
 import httpx
@@ -11,6 +12,7 @@ from ui import client  # noqa: E402
 
 RACINE = Path(__file__).resolve().parents[1]
 PAGE = str(RACINE / "ui" / "app.py")
+CLE_TEST = "cle-client-des-tests-ui"
 pytestmark = pytest.mark.skipif(not (RACINE / "models" / "sentiment.joblib").exists(),
                                 reason="modèle non produit : python src/train.py")
 
@@ -21,8 +23,15 @@ def api():
 
     from api.main import app
 
-    with TestClient(app) as c:
+    # l'API /v1 exige une clé : on en déclare une pour la durée du module, comme le ferait .env
+    precedent = os.environ.get("API_KEYS")
+    os.environ["API_KEYS"] = f"{CLE_TEST}:client"
+    with TestClient(app, headers={"X-API-Key": CLE_TEST}) as c:
         yield c
+    if precedent is None:
+        os.environ.pop("API_KEYS", None)
+    else:
+        os.environ["API_KEYS"] = precedent
 
 
 @pytest.fixture
